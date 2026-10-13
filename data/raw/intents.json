@@ -1,0 +1,77 @@
+{
+  "intents": [
+    {
+      "tag": "greeting",
+      "patterns": [
+        "hi",
+        "hello",
+        "hey",
+        "good morning",
+        "good evening",
+        "hello there"
+      ],
+      "responses": [
+        "Hello! I’m BookWise. Tell me the kind of book you want to discover.",
+        "Hi there! I can suggest books by mood, genre, or title."
+      ]
+    },
+    {
+      "tag": "goodbye",
+      "patterns": [
+        "bye",
+        "goodbye",
+        "see you",
+        "talk later",
+        "farewell"
+      ],
+      "responses": [
+        "Goodbye! Come back when you want another great read.",
+        "Take care and happy reading!"
+      ]
+    },
+    {
+      "tag": "thanks",
+      "patterns": [
+        "thanks",
+        "thank you",
+        "appreciate it",
+        "many thanks"
+      ],
+      "responses": [
+        "You’re welcome! I’m happy to help you find your next book.",
+        "Glad I could help with your reading list."
+      ]
+    },
+    {
+      "tag": "book_search",
+      "patterns": [
+        "find book",
+        "search for a book",
+        "recommend a book",
+        "book about",
+        "show me books like"
+      ],
+      "responses": [
+        "I can help with that. Search by title, author, keyword, or genre.",
+        "Tell me the title or author, and I’ll match it to the catalog."
+      ]
+    },
+    {
+      "tag": "genre_request",
+      "patterns": [
+        "fantasy books",
+        "science fiction books",
+        "mystery books",
+        "romance books",
+        "classic books",
+        "dystopian books",
+        "give me fantasy recommendations",
+        "books in fantasy"
+      ],
+      "responses": [
+        "Here are curated picks from the catalog for that genre.",
+        "I’ve pulled some highly relevant matches from the genre you mentioned."
+      ]
+    }
+  ]
+}

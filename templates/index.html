@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BookWise</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-block">
+        <div class="brand-badge">B</div>
+        <div>
+          <p class="eyebrow">Discover Your Next Read</p>
+          <h1>BookWise</h1>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="#featured">Featured</a>
+        <a href="#browse">Browse</a>
+        <a href="#chatbot">Chatbot</a>
+      </nav>
+    </header>
+
+    <main class="page-shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <span class="pill">Curated for every reader</span>
+          <h2>Find books that match your next chapter.</h2>
+          <p>Search by title, author, mood, or genre and explore recommendations based on the catalogue itself.</p>
+          <div class="search-panel">
+            <input id="searchInput" type="text" placeholder="Search for books, authors, or categories" aria-label="Search books" />
+            <button id="searchButton">Search</button>
+          </div>
+        </div>
+        <div class="hero-metrics">
+          <div class="stat-card">
+            <strong id="bookCount">0</strong>
+            <span>Books</span>
+          </div>
+          <div class="stat-card">
+            <strong id="categoryCount">0</strong>
+            <span>Categories</span>
+          </div>
+          <div class="stat-card">
+            <strong id="avgRating">0.0</strong>
+            <span>Avg rating</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="featured" class="content-section">
+        <div class="section-header">
+          <h3>Featured books</h3>
+          <button class="secondary-btn" id="featuredRefresh">Refresh</button>
+        </div>
+        <div id="featuredBooks" class="book-grid"></div>
+      </section>
+
+      <section id="browse" class="content-section">
+        <div class="section-header">
+          <h3>Browse categories</h3>
+        </div>
+        <div id="categoryList" class="category-list"></div>
+      </section>
+
+      <section class="content-section split-layout">
+        <div>
+          <div class="section-header">
+            <h3>Recommendations</h3>
+          </div>
+          <div id="recommendationList" class="book-grid compact"></div>
+        </div>
+        <aside id="chatbot" class="chat-panel">
+          <div class="section-header compact-head">
+            <h3>BookBot</h3>
+          </div>
+          <div id="chatMessages" class="chat-messages">
+            <div class="message bot">Hi! Ask for fantasy, mystery, or a book title.</div>
+          </div>
+          <div class="chat-input-row">
+            <input id="chatInput" type="text" placeholder="Ask BookWise..." aria-label="Chat with BookWise" />
+            <button id="chatButton">Send</button>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>BookWise — Discover Your Next Read</p>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+  </body>
+</html>
