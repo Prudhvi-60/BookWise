@@ -33,19 +33,24 @@ class BookRecommender:
 
     @staticmethod
     def _as_book_record(row: pd.Series) -> dict:
+        def clean(value):
+            if value is None or pd.isna(value):
+                return None
+            return value
+
         return {
-            "isbn13": row.get("isbn13"),
-            "isbn10": row.get("isbn10"),
-            "title": str(row.get("title") or "").strip() or None,
-            "subtitle": row.get("subtitle"),
-            "authors": row.get("authors"),
-            "categories": row.get("categories"),
-            "thumbnail": row.get("thumbnail"),
-            "description": row.get("description"),
-            "published_year": row.get("published_year"),
-            "average_rating": None if pd.isna(row.get("average_rating")) else row.get("average_rating"),
-            "num_pages": None if pd.isna(row.get("num_pages")) else row.get("num_pages"),
-            "ratings_count": None if pd.isna(row.get("ratings_count")) else row.get("ratings_count"),
+            "isbn13": clean(row.get("isbn13")),
+            "isbn10": clean(row.get("isbn10")),
+            "title": str(clean(row.get("title")) or "").strip() or None,
+            "subtitle": clean(row.get("subtitle")),
+            "authors": clean(row.get("authors")),
+            "categories": clean(row.get("categories")),
+            "thumbnail": clean(row.get("thumbnail")),
+            "description": clean(row.get("description")),
+            "published_year": clean(row.get("published_year")),
+            "average_rating": clean(row.get("average_rating")),
+            "num_pages": clean(row.get("num_pages")),
+            "ratings_count": clean(row.get("ratings_count")),
         }
 
     def _find_book_index(self, title_or_isbn: str) -> int | None:
@@ -79,6 +84,8 @@ class BookRecommender:
         else:
             query_vector = self.vectorizer.transform([normalized])
             cosine = cosine_similarity(query_vector, self.matrix).ravel()
+            if float(cosine.max()) < 0.2:
+                return []
             ranked_idx = np.argsort(cosine)[::-1][: max(limit * 5, 10)]
             ranked = self.df.iloc[ranked_idx].copy()
             ranked["match_score"] = cosine[ranked_idx]
