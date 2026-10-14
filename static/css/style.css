@@ -91,6 +91,10 @@ button, input {
   font-size: clamp(2rem, 4vw, 4rem);
   line-height: 1.05;
 }
+.hero-copy,
+.hero-metrics {
+  min-width: 0;
+}
 .hero-copy p {
   color: var(--muted);
   max-width: 50ch;
@@ -114,6 +118,7 @@ button, input {
 .search-panel input,
 .chat-input-row input {
   flex: 1;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 0.9rem 1rem;

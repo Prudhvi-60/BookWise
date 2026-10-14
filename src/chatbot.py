@@ -10,7 +10,11 @@ INTENTS_PATH = APP_ROOT / "data" / "raw" / "intents.json"
 
 
 class BookBot:
-    def __init__(self, intents_path: str | Path | None = None):
+    def __init__(
+        self,
+        intents_path: str | Path | None = None,
+        recommender: BookRecommender | None = None,
+    ):
         path = Path(intents_path) if intents_path else INTENTS_PATH
         if not path.exists():
             self.intents = []
@@ -21,7 +25,7 @@ class BookBot:
                 self.intents = payload.get("intents", []) if isinstance(payload, dict) else []
             except (json.JSONDecodeError, OSError):
                 self.intents = []
-        self.recommender = BookRecommender()
+        self.recommender = recommender or BookRecommender()
 
     def _match_tag(self, message: str) -> str:
         normalized = " ".join(str(message).strip().lower().split())

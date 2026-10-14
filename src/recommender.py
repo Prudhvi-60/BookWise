@@ -13,8 +13,13 @@ from src.llm_provider import OpenAIProvider
 
 
 class BookRecommender:
-    def __init__(self, dataset_path: str | None = None, llm_provider: OpenAIProvider | None = None):
-        df = clean_dataset(load_dataset(dataset_path or get_dataset_path()))
+    def __init__(
+        self,
+        dataset_path: str | None = None,
+        llm_provider: OpenAIProvider | None = None,
+        dataset: pd.DataFrame | None = None,
+    ):
+        df = dataset.copy() if dataset is not None else clean_dataset(load_dataset(dataset_path or get_dataset_path()))
         self.df = df.copy().reset_index(drop=True)
         self.df["search_text"] = (
             self.df[["title", "subtitle", "authors", "categories", "description"]].fillna("").astype(str).agg(lambda row: " ".join(row), axis=1)
@@ -41,6 +46,8 @@ class BookRecommender:
         def clean(value):
             if value is None or pd.isna(value):
                 return None
+            if isinstance(value, np.generic):
+                return value.item()
             return value
 
         return {
@@ -215,7 +222,7 @@ class BookRecommender:
         if not candidate_books:
             candidate_books = self.category_recommendations(normalized, limit=max(limit * 4, 10))
         if not candidate_books:
-            candidate_books = [self._as_book_record(row) for _, row in self.df.sort_values(["average_rating", "ratings_count"], ascending=[False, False], na_position="last").head(max(limit * 4, 10)).iterrows()]
+            return []
 
         scored = []
         for book in candidate_books:

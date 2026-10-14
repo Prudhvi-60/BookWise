@@ -47,8 +47,8 @@ class OpenAIProvider(LLMProvider):
             return
 
         try:
-            from openai import OpenAI
-
+            if OpenAI is None:
+                raise RuntimeError("The OpenAI SDK is not installed.")
             self.client = OpenAI(api_key=self.api_key, timeout=self.timeout)
         except Exception as exc:  # pragma: no cover - depends on runtime SDK
             logger.warning("Unable to initialize OpenAI client: %s", exc)

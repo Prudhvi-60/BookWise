@@ -38,7 +38,11 @@ def load_dataset(path: str | Path | None = None) -> pd.DataFrame:
     dataset_path = Path(path) if path else get_dataset_path()
     if not dataset_path.exists():
         raise FileNotFoundError(f"Dataset not found at: {dataset_path}")
-    df = pd.read_csv(dataset_path, keep_default_na=True)
+    df = pd.read_csv(
+        dataset_path,
+        keep_default_na=True,
+        dtype={"isbn13": "string", "isbn10": "string"},
+    )
     return df.copy()
 
 
@@ -110,8 +114,16 @@ def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_dataset_stats(df: pd.DataFrame) -> dict:
+    categories = (
+        df["categories"].fillna("").astype(str).str.split(",").explode().str.strip()
+        if "categories" in df
+        else pd.Series(dtype="string")
+    )
+    ratings = pd.to_numeric(df["average_rating"], errors="coerce") if "average_rating" in df else pd.Series(dtype="float64")
     stats = {
         "rows": int(len(df)),
+        "category_count": int(categories[categories.ne("")].nunique()),
+        "average_rating": None if ratings.dropna().empty else round(float(ratings.mean()), 2),
         "columns": list(df.columns),
         "missing_values": {col: int(df[col].isna().sum()) for col in df.columns},
         "missing_pct": {col: round(float(df[col].isna().mean() * 100), 2) for col in df.columns},
@@ -142,22 +154,52 @@ def generate_eda_report(df: pd.DataFrame | None = None, output_dir: str | Path |
     import matplotlib.pyplot as plt
     import seaborn as sns
 
-    books = df.copy() if df is not None else prepare_dataset()
+    source = df.copy() if df is not None else load_dataset()
+    books = clean_dataset(source)
     report_dir = Path(output_dir) if output_dir is not None else APP_ROOT / "reports" / "eda"
     report_dir.mkdir(parents=True, exist_ok=True)
 
+    missing_values = source.isna().sum()
+    missing_summary = [
+        f"- {column}: {int(count)} ({count / max(len(source), 1) * 100:.1f}%)"
+        for column, count in missing_values.items()
+        if count
+    ] or ["- None"]
+    normalized_titles = source["title"].fillna("").astype(str).str.lower().str.replace(r"[^a-z0-9]+", " ", regex=True).str.strip()
+    duplicate_isbn13 = int(source["isbn13"].dropna().duplicated().sum())
+    duplicate_isbn10 = int(source["isbn10"].dropna().duplicated().sum())
+    duplicate_titles = int(normalized_titles[normalized_titles.ne("")].duplicated().sum())
+    numeric_summaries = []
+    for column in ["published_year", "average_rating", "num_pages", "ratings_count"]:
+        values = pd.to_numeric(source[column], errors="coerce")
+        numeric_summaries.append(
+            f"- {column}: valid={int(values.notna().sum())}, min={values.min()}, median={values.median()}, max={values.max()}"
+        )
+
     summary = [
         "# BookWise Exploratory Data Analysis",
-        f"- Rows: {len(books)}",
-        f"- Columns: {len(books.columns)}",
-        f"- Missing values: {int(books.isna().sum().sum())}",
-        f"- Duplicate rows: {int(books.duplicated().sum())}",
+        f"- Source dimensions: {len(source)} rows x {len(source.columns)} columns",
+        f"- Cleaned rows: {len(books)} (removed {len(source) - len(books)} records)",
+        f"- Exact duplicate source rows: {int(source.duplicated().sum())}",
+        f"- Duplicate ISBN-13 values: {duplicate_isbn13}",
+        f"- Duplicate ISBN-10 values: {duplicate_isbn10}",
+        f"- Duplicate normalized titles: {duplicate_titles}",
+        "",
+        "## Missing values in source data",
+        *missing_summary,
+        "",
+        "## Numeric distributions",
+        *numeric_summaries,
+        "",
+        "## Text distributions",
+        f"- Distinct non-empty categories: {int(source['categories'].fillna('').astype(str).str.split(',').explode().str.strip().replace('', pd.NA).nunique())}",
+        f"- Distinct non-empty authors: {int(source['authors'].fillna('').astype(str).str.strip().replace('', pd.NA).nunique())}",
         "",
         "## Cleaning decisions",
-        "- Preserved ISBN values as strings without stripping leading zeros.",
-        "- Normalized whitespace and empty text values.",
-        "- Kept books with missing subtitles, authors, or categories when still useful instead of dropping them wholesale.",
-        "- Removed exact duplicates and title/ISBN collisions deterministically using a last-valid-record policy.",
+        "- Read ISBN-10 and ISBN-13 as strings, preserving leading zeroes.",
+        "- Normalized whitespace and converted empty textual fields to missing values.",
+        "- Kept records with missing optional text fields; invalid numeric ranges become missing, not fabricated values.",
+        "- Removed exact duplicates and then duplicate ISBN-13/title keys deterministically, retaining the last sorted record.",
     ]
     (report_dir / "eda_summary.md").write_text("\n".join(summary), encoding="utf-8")
 
@@ -166,7 +208,7 @@ def generate_eda_report(df: pd.DataFrame | None = None, output_dir: str | Path |
         top_categories = top_categories[top_categories != ""].value_counts().head(8)
 
         fig, ax = plt.subplots(figsize=(8, 5))
-        sns.barplot(x=top_categories.values, y=top_categories.index, palette="viridis", ax=ax)
+        sns.barplot(x=top_categories.values, y=top_categories.index, color="#5f49d3", ax=ax)
         ax.set_title("Top categories")
         ax.set_xlabel("Count")
         ax.set_ylabel("Category")

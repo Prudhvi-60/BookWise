@@ -1,120 +1,90 @@
-# BookWise — Intelligent Book Recommendation System
+# BookWise — Discover Your Next Read
 
-BookWise is a FastAPI-based book discovery app that combines a dataset-backed recommendation engine with optional LLM-assisted preference understanding. The project keeps the original catalogue-driven workflow, extends it with natural-language recommendation input, and falls back safely when the LLM is unavailable.
+BookWise is a FastAPI book-discovery application. Search, category browsing, and recommendations are grounded in the local catalogue. A supplied intents file drives deterministic chatbot greetings and search behavior. Optional OpenAI preference extraction is disabled unless credentials are configured.
 
-## Architecture discovered
+## Architecture
 
-The repository is structured around the following components:
+- `main.py`: FastAPI application, API routes, templates, and static assets.
+- `src/data_processing.py`: repository-relative CSV loading, ISBN-preserving parsing, validation, cleaning, statistics, and EDA output.
+- `src/recommender.py`: sparse TF-IDF search and cosine similarity; category overlap and ratings are secondary ranking signals.
+- `src/chatbot.py`: deterministic matching against `data/raw/intents.json` and catalogue-backed responses.
+- `src/llm_provider.py`: optional OpenAI preference extraction with validated output and deterministic fallback.
+- `src/evaluation.py`: reproducible mechanical retrieval checks; the catalogue contains no ground-truth relevance labels.
+- `templates/`, `static/`: Jinja2 page, CSS, and browser interactions.
 
-- `main.py`: FastAPI application entry point.
-- `src/data_processing.py`: dataset loading, schema validation, cleaning, and summary stats.
-- `src/recommender.py`: TF-IDF search, similarity-based recommendations, category filtering, and hybrid ranking.
-- `src/chatbot.py`: intent-based conversational helper using the local dataset and keyword patterns.
-- `src/llm_provider.py`: OpenAI-compatible provider abstraction for preference extraction and reasoning.
-- `templates/index.html` and `static/js/app.js`: browser UI for search and recommendations.
-- `data/raw/data.csv`: catalogue data used for metadata-based recommendations.
-- `data/raw/intents.json`: static chat intents for the bot.
+The app currently does not use OpenAI tool/function calling. It does not generate or invent catalogue entries. No supervised purchase classifier or classification metrics are claimed.
 
-## Existing stack
+## Data
 
-- Python 3.12+
-- FastAPI
-- Jinja2 + static frontend
-- Pandas + NumPy
-- scikit-learn for TF-IDF and cosine similarity
-- pytest for automated tests
-- OpenAI Python SDK for optional LLM integration
-- python-dotenv for environment loading
+The application reads `data/raw/data.csv` and `data/raw/intents.json`, relative to the project directory. The catalogue schema is `isbn13`, `isbn10`, `title`, `subtitle`, `authors`, `categories`, `thumbnail`, `description`, `published_year`, `average_rating`, `num_pages`, and `ratings_count`. Cleaned data is reproducibly written to `data/processed/cleaned_books.csv`; the raw CSV is not modified.
 
-## Recommendation flow
+The current checkout contains a small catalogue; see `reports/eda/eda_summary.md` for measured dimensions, missingness, duplicates, and distributions. The original data provider’s licensing and redistribution terms still need to be verified before publishing the dataset.
 
-The original system used a content-based approach:
+## Local Setup (Windows PowerShell)
 
-- normalize and clean the source dataset,
-- create TF-IDF features from title, subtitle, authors, categories, and description,
-- search by literal title/author/category matches or semantic similarity,
-- rank books by match score, average rating, and popularity.
+From the repository root:
 
-The upgrade adds a hybrid path:
-
-1. Validate the user query.
-2. Optional LLM extraction of genres, interests, reading level, tone, goals, exclusions, and requested count.
-3. Candidate retrieval from the catalog using the existing search and similarity logic.
-4. Ranking with dataset metadata, category/keyword overlap, and popularity/ratings.
-5. Final validation against real catalog entries.
-6. Safe fallback to dataset-only recommendations when the LLM is unavailable or errors occur.
-
-## Environment setup
-
-1. Create and activate a virtual environment.
-2. Install dependencies:
-
-```bash
-pip install -r requirements.txt
+```powershell
+py -3.12 -m venv .venv
+Set-ExecutionPolicy -Scope Process Bypass
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 ```
 
-3. Copy the sample environment file and set your key:
+LLM preference extraction is optional. To enable it for a local session, set credentials in the current PowerShell process (do not commit them):
 
-```bash
-copy .env.example .env
+```powershell
+$env:OPENAI_API_KEY = "your-key"
+$env:OPENAI_MODEL = "gpt-4o-mini"
 ```
 
-4. Add your API key and model in `.env`:
+Run tests and start the server:
 
-```env
-OPENAI_API_KEY=your_api_key_here
-OPENAI_MODEL=gpt-4o-mini
-```
-
-5. Start the application:
-
-```bash
+```powershell
+python -c "import sys; print(sys.executable); import main, src; print('Imports OK')"
+python -m pytest -q
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-6. Open http://localhost:8000
+Open `http://127.0.0.1:8000`. API documentation is available at `/docs`.
 
-## API configuration and behavior
+## API
 
-- The app reads environment variables from `.env` using `python-dotenv`.
-- LLM functionality is optional; missing credentials do not crash the app.
-- When no key is configured, the project continues using the dataset recommendation engine.
-- Model outputs are validated before use; malformed LLM responses trigger safe fallback behavior.
+- `GET /`: BookWise discovery page.
+- `GET /health`: readiness, catalogue size, and optional LLM availability.
+- `GET /api/stats`: computed catalogue dimensions and summary statistics.
+- `GET /api/search?q=...`: title, author, category, description, and TF-IDF search.
+- `GET /api/categories`: available catalogue categories.
+- `GET /api/recommendations?title=...&limit=6`: similar books; also accepts `q` or `genre`.
+- `POST /api/chat`: JSON body `{"message":"..."}`.
+- `GET /docs`: interactive OpenAPI documentation.
 
-## Testing
+Search text is limited to 200 characters; chat messages are limited to 1,000 characters and result limits are bounded.
 
-Run the automated tests with:
+## Evaluation and Tests
 
-```bash
-pytest -q
+Run:
+
+```powershell
+python -m src.evaluation
+python -m pytest -q
 ```
 
-The suite covers:
+Evaluation checks result validity, self-exclusion, unique titles, and sampled catalogue coverage for representative seed books. There are no explicit relevance labels, so no precision, recall, F1, or accuracy claims are appropriate.
 
-- dataset loading and cleaning,
-- recommendation and search behavior,
-- API endpoints,
-- chatbot fallback responses,
-- LLM provider behavior,
-- hybrid fallback behavior.
+## Render Deployment
 
-## Deployment
+The root `render.yaml` configures a Python web service with:
 
-This project is prepared for Render with the existing `render.yaml` configuration:
+- Build command: `pip install -r requirements.txt`
+- Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- Health-check path: `/health`
 
-```bash
-uvicorn main:app --host 0.0.0.0 --port $PORT
-```
+To deploy, push the project and required data files to a GitHub repository, create a Render Blueprint or web service from that repository, and verify the build/deploy logs and `/health` response. Set `OPENAI_API_KEY` and optionally `OPENAI_MODEL` in Render’s environment only if optional OpenAI preference extraction is wanted. No remote deployment has been performed from this workspace.
 
-Ensure the environment exposes `OPENAI_API_KEY` and `OPENAI_MODEL` in the deployment environment, and avoid committing secrets into source control.
+## Troubleshooting
 
-## Known limitations
-
-- The catalogue is small and domain-specific; recommendations are grounded to the supplied catalog only.
-- The LLM is used for preference extraction and explanation, not to invent books.
-- The app does not support a vector database or advanced embeddings because the dataset is small and the existing architecture is lightweight.
-- Real LLM requests require a valid API key and network access; tests use mocked provider responses and do not require paid API credits.
-
-## Licensing note
-
-The source data and intent definitions should be reviewed for their original licensing or redistribution terms before public deployment or redistribution.
+- Run commands from the repository root and use the project venv’s Python to avoid missing dependency/import errors.
+- If startup reports a missing catalogue or intents file, verify both files are included at the repository-relative paths above.
+- A `TestClient` AnyIO deprecation warning may appear with the currently pinned FastAPI/Starlette test stack; it does not affect the app’s HTTP routes.
+- Cover URLs are catalogue data and may fail at their origin; the UI displays a local unavailable-cover placeholder.

@@ -1,4 +1,5 @@
 from src.recommender import BookRecommender
+from src.evaluation import evaluate_catalogue, evaluate_recommendations
 
 
 def test_recommendations_exclude_query_book_and_return_valid_records():
@@ -21,3 +22,18 @@ def test_unknown_queries_are_handled_gracefully():
     engine = BookRecommender()
     books = engine.search_books("zzzz-not-a-real-book-title")
     assert books == []
+
+
+def test_unknown_hybrid_query_does_not_return_unrelated_books():
+    engine = BookRecommender()
+
+    assert engine.hybrid_recommendations("zzzz-not-a-real-book-title") == []
+
+
+def test_evaluation_reports_real_category_and_sampled_coverage():
+    engine = BookRecommender()
+    catalogue = evaluate_catalogue()
+    retrieval = evaluate_recommendations(engine)
+
+    assert catalogue["distinct_categories"] > 1
+    assert 0 < retrieval["sampled_catalogue_coverage"] <= 1
