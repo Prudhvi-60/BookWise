@@ -300,6 +300,116 @@ button, input {
   gap: 0.6rem;
   margin-top: 1rem;
 }
+.filter-panel {
+  background: rgba(255,255,255,0.8);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow);
+}
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+.form-group label, .filter-panel h4 {
+  font-weight: 700;
+  color: var(--ink);
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.8rem 0.9rem;
+  background: rgba(255,255,255,0.9);
+  color: var(--ink);
+}
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+.genre-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+.genre-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #f6f1ff;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  font-weight: 600;
+  color: var(--purple-deep);
+}
+.filter-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 1rem;
+}
+.primary-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 0.9rem 1.2rem;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, var(--purple), var(--purple-deep));
+  cursor: pointer;
+}
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.active-filters {
+  margin-top: 0.9rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.book-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.score-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.5rem;
+  border-radius: 999px;
+  background: #efe7ff;
+  color: var(--purple-deep);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.reason-list {
+  margin: 0.75rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.card-actions {
+  margin-top: 0.8rem;
+}
+.minimal {
+  padding: 0.65rem 0.85rem;
+  font-size: 0.85rem;
+}
 .footer {
   padding: 1.5rem 1rem 2rem;
   text-align: center;

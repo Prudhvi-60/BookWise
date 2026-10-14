@@ -15,7 +15,28 @@ const elements = {
   bookCount: document.getElementById('bookCount'),
   categoryCount: document.getElementById('categoryCount'),
   avgRating: document.getElementById('avgRating'),
+  naturalLanguageQuery: document.getElementById('naturalLanguageQuery'),
+  authorInput: document.getElementById('authorInput'),
+  excludeAuthorsInput: document.getElementById('excludeAuthorsInput'),
+  yearMin: document.getElementById('yearMin'),
+  yearMax: document.getElementById('yearMax'),
+  minRating: document.getElementById('minRating'),
+  minReviews: document.getElementById('minReviews'),
+  pageMax: document.getElementById('pageMax'),
+  resultCount: document.getElementById('resultCount'),
+  recommendMode: document.getElementById('recommendMode'),
+  strictToggle: document.getElementById('strictToggle'),
+  genreFilterList: document.getElementById('genreFilterList'),
+  activeFilters: document.getElementById('activeFilters'),
+  resetFilters: document.getElementById('resetFilters'),
+  generateRecommendations: document.getElementById('generateRecommendations'),
 };
+
+const DEFAULT_GENRES = [
+  'Fantasy', 'Science Fiction', 'Mystery', 'Thriller', 'Romance',
+  'Historical Fiction', 'Horror', 'Biography', 'Self-Help',
+  'Philosophy', 'Psychology', 'Business', 'Technology', 'Adventure', 'Young Adult'
+];
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, character => ({
@@ -41,8 +62,11 @@ function createBookCard(book) {
   const authors = book.authors || 'Unknown author';
   const categories = book.categories ? book.categories.split(',').slice(0, 2).map(item => item.trim()).filter(Boolean) : [];
   const imageUrl = safeImageUrl(book.thumbnail || '');
-  const year = book.published_year ? escapeHTML(book.published_year) : '';
+  const year = book.published_year ? escapeHTML(book.published_year) : 'Unknown year';
   const rating = book.average_rating != null ? Number(book.average_rating).toFixed(1) : 'N/A';
+  const ratingText = rating === 'N/A' ? 'Rating unavailable' : `★ ${escapeHTML(rating)}`;
+  const matchReasons = Array.isArray(book.match_reasons) ? book.match_reasons.slice(0, 2).map(reason => `<li>${escapeHTML(reason)}</li>`).join('') : '';
+  const score = typeof book.match_score === 'number' ? `Match ${Number(book.match_score).toFixed(2)}` : 'Catalogue pick';
 
   return `
     <article class="book-card">
@@ -50,14 +74,21 @@ function createBookCard(book) {
         ${imageUrl ? `<img class="book-image" src="${escapeHTML(imageUrl)}" alt="Cover of ${escapeHTML(title)}" loading="lazy" />` : '<span>Cover unavailable</span>'}
       </div>
       <div class="book-card-body">
-        <h4>${escapeHTML(title)}</h4>
+        <div class="book-card-header">
+          <h4>${escapeHTML(title)}</h4>
+          <span class="score-pill">${score}</span>
+        </div>
         <p>${escapeHTML(authors)}</p>
         <div class="meta-row">
           ${categories.map(item => `<span class="meta-badge">${escapeHTML(item)}</span>`).join('') || '<span class="meta-badge">General</span>'}
         </div>
         <div class="rating-line">
-          <span>${rating === 'N/A' ? 'Rating unavailable' : `★ ${escapeHTML(rating)}`}</span>
-          <span>${year}</span>
+          <span>${ratingText}</span>
+          <span>${escapeHTML(year)}</span>
+        </div>
+        ${matchReasons ? `<ul class="reason-list">${matchReasons}</ul>` : ''}
+        <div class="card-actions">
+          <button class="secondary-btn minimal" type="button">View details</button>
         </div>
       </div>
     </article>
@@ -74,6 +105,32 @@ document.addEventListener('error', event => {
 
 function renderEmpty(target, message) {
   target.innerHTML = `<div class="empty-state">${message}</div>`;
+}
+
+function getSelectedGenres() {
+  return Array.from(document.querySelectorAll('.genre-option input:checked')).map(item => item.value);
+}
+
+function updateActiveFiltersSummary() {
+  const filters = [];
+  const naturalLanguage = elements.naturalLanguageQuery.value.trim();
+  if (naturalLanguage) filters.push(`Text: ${naturalLanguage.slice(0, 40)}`);
+  const selectedGenres = getSelectedGenres();
+  if (selectedGenres.length) filters.push(`Genres: ${selectedGenres.join(', ')}`);
+  const authors = elements.authorInput.value.trim();
+  if (authors) filters.push(`Authors: ${authors}`);
+  const excludeAuthors = elements.excludeAuthorsInput.value.trim();
+  if (excludeAuthors) filters.push(`Avoid: ${excludeAuthors}`);
+  const yearMin = elements.yearMin.value.trim();
+  const yearMax = elements.yearMax.value.trim();
+  if (yearMin || yearMax) filters.push(`Years: ${yearMin || 'any'}-${yearMax || 'any'}`);
+  const minRating = elements.minRating.value.trim();
+  if (minRating) filters.push(`Min rating: ${minRating}`);
+  const minReviews = elements.minReviews.value.trim();
+  if (minReviews) filters.push(`Reviews: ${minReviews}+`);
+  const pageMax = elements.pageMax.value.trim();
+  if (pageMax) filters.push(`Max pages: ${pageMax}`);
+  elements.activeFilters.textContent = filters.length ? `Active filters: ${filters.join(' • ')}` : 'No active filters yet.';
 }
 
 async function loadStats() {
@@ -94,14 +151,25 @@ async function loadFeaturedBooks() {
 async function loadCategories() {
   const response = await fetch('/api/categories');
   const data = await response.json();
-  state.categories = data.categories.slice(0, 12);
-  elements.categoryList.innerHTML = state.categories.map(category => `<button class="category-chip" data-category="${escapeHTML(category)}">${escapeHTML(category)}</button>`).join('');
+  state.categories = data.categories.slice(0, 20);
+  const genreOptions = state.categories.length ? state.categories : DEFAULT_GENRES;
+  elements.categoryList.innerHTML = genreOptions.map(category => `<button class="category-chip" data-category="${escapeHTML(category)}">${escapeHTML(category)}</button>`).join('');
+  elements.genreFilterList.innerHTML = genreOptions.map(genre => `
+    <label class="genre-option">
+      <input type="checkbox" value="${escapeHTML(genre)}" />
+      <span>${escapeHTML(genre)}</span>
+    </label>
+  `).join('');
 
   document.querySelectorAll('.category-chip').forEach(button => {
     button.addEventListener('click', () => {
       const category = button.dataset.category;
       fetchRecommendations(category, true);
     });
+  });
+
+  document.querySelectorAll('.genre-option input').forEach(input => {
+    input.addEventListener('change', updateActiveFiltersSummary);
   });
 }
 
@@ -116,6 +184,40 @@ async function fetchRecommendations(query, byGenre = false) {
   elements.recommendationList.innerHTML = data.books.map(createBookCard).join('');
 }
 
+async function generateAdvancedRecommendations() {
+  const params = new URLSearchParams();
+  const text = elements.naturalLanguageQuery.value.trim();
+  if (text) params.set('natural_language', text);
+  const selectedGenres = getSelectedGenres();
+  if (selectedGenres.length) params.set('genres', selectedGenres.join(','));
+  const authorValue = elements.authorInput.value.trim();
+  if (authorValue) params.set('authors', authorValue);
+  const excludeAuthors = elements.excludeAuthorsInput.value.trim();
+  if (excludeAuthors) params.set('exclude_authors', excludeAuthors);
+  const yearMin = elements.yearMin.value.trim();
+  if (yearMin) params.set('year_min', yearMin);
+  const yearMax = elements.yearMax.value.trim();
+  if (yearMax) params.set('year_max', yearMax);
+  const minRating = elements.minRating.value.trim();
+  if (minRating) params.set('min_rating', minRating);
+  const minReviews = elements.minReviews.value.trim();
+  if (minReviews) params.set('min_reviews', minReviews);
+  const pageMax = elements.pageMax.value.trim();
+  if (pageMax) params.set('page_max', pageMax);
+  const resultCount = elements.resultCount.value;
+  params.set('limit', resultCount);
+  params.set('strict', String(elements.strictToggle.checked));
+  params.set('mode', elements.recommendMode.value);
+
+  const response = await fetch('/api/recommendations?' + params.toString());
+  const data = await response.json();
+  if (!data.books || !data.books.length) {
+    renderEmpty(elements.recommendationList, 'No books matched those filters. Try widening your preferences or resetting the form.');
+    return;
+  }
+  elements.recommendationList.innerHTML = data.books.map(createBookCard).join('');
+}
+
 async function searchBooks(query) {
   const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
   const data = await response.json();
@@ -125,6 +227,24 @@ async function searchBooks(query) {
   }
   elements.featuredBooks.innerHTML = data.books.slice(0, 4).map(createBookCard).join('');
   elements.recommendationList.innerHTML = data.books.slice(0, 6).map(createBookCard).join('');
+}
+
+function resetFilters() {
+  elements.naturalLanguageQuery.value = '';
+  elements.authorInput.value = '';
+  elements.excludeAuthorsInput.value = '';
+  elements.yearMin.value = '';
+  elements.yearMax.value = '';
+  elements.minRating.value = '';
+  elements.minReviews.value = '';
+  elements.pageMax.value = '';
+  elements.resultCount.value = '10';
+  elements.recommendMode.value = 'best_match';
+  elements.strictToggle.checked = true;
+  document.querySelectorAll('.genre-option input').forEach(input => {
+    input.checked = false;
+  });
+  updateActiveFiltersSummary();
 }
 
 function addChatMessage(text, role = 'bot') {
@@ -180,10 +300,23 @@ document.getElementById('featuredRefresh').addEventListener('click', () => {
   loadFeaturedBooks();
 });
 
+elements.generateRecommendations.addEventListener('click', generateAdvancedRecommendations);
+elements.resetFilters.addEventListener('click', resetFilters);
+
+elements.naturalLanguageQuery.addEventListener('input', updateActiveFiltersSummary);
+elements.authorInput.addEventListener('input', updateActiveFiltersSummary);
+elements.excludeAuthorsInput.addEventListener('input', updateActiveFiltersSummary);
+elements.yearMin.addEventListener('input', updateActiveFiltersSummary);
+elements.yearMax.addEventListener('input', updateActiveFiltersSummary);
+elements.minRating.addEventListener('input', updateActiveFiltersSummary);
+elements.minReviews.addEventListener('input', updateActiveFiltersSummary);
+elements.pageMax.addEventListener('input', updateActiveFiltersSummary);
+
 async function init() {
   await loadStats();
   await loadFeaturedBooks();
   await loadCategories();
+  updateActiveFiltersSummary();
   fetchRecommendations('fiction');
 }
 

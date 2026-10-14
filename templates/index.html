@@ -67,6 +67,84 @@
         <div id="categoryList" class="category-list"></div>
       </section>
 
+      <section class="content-section">
+        <div class="section-header">
+          <h3>Smart recommendation filters</h3>
+          <button class="secondary-btn" id="resetFilters" type="button">Reset filters</button>
+        </div>
+        <form id="recommendationForm" class="filter-panel">
+          <div class="filter-grid">
+            <div class="form-group full-width">
+              <label for="naturalLanguageQuery">What kind of book do you want?</label>
+              <textarea id="naturalLanguageQuery" rows="3" placeholder="I want a thought-provoking science-fiction novel published after 2015, under 400 pages, and with philosophical themes."></textarea>
+            </div>
+            <div class="form-group">
+              <label for="authorInput">Preferred authors</label>
+              <input id="authorInput" type="text" placeholder="J.R.R. Tolkien, George Orwell" />
+            </div>
+            <div class="form-group">
+              <label for="excludeAuthorsInput">Excluded authors</label>
+              <input id="excludeAuthorsInput" type="text" placeholder="Avoid authors" />
+            </div>
+            <div class="form-group">
+              <label for="yearMin">Min year</label>
+              <input id="yearMin" type="number" min="0" max="2035" placeholder="1900" />
+            </div>
+            <div class="form-group">
+              <label for="yearMax">Max year</label>
+              <input id="yearMax" type="number" min="0" max="2035" placeholder="2025" />
+            </div>
+            <div class="form-group">
+              <label for="minRating">Min rating</label>
+              <input id="minRating" type="number" min="0" max="5" step="0.1" placeholder="4.0" />
+            </div>
+            <div class="form-group">
+              <label for="minReviews">Min reviews</label>
+              <input id="minReviews" type="number" min="0" placeholder="5000" />
+            </div>
+            <div class="form-group">
+              <label for="pageMax">Max pages</label>
+              <input id="pageMax" type="number" min="0" placeholder="400" />
+            </div>
+            <div class="form-group">
+              <label for="resultCount">Results</label>
+              <select id="resultCount">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="15">15</option>
+                <option value="20">20</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="recommendMode">Mode</label>
+              <select id="recommendMode">
+                <option value="best_match">Best Match</option>
+                <option value="discover">Discover Something New</option>
+                <option value="hidden_gems">Hidden Gems</option>
+                <option value="popular">Popular Picks</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="strictToggle">Strict filters</label>
+              <label class="checkbox-row">
+                <input id="strictToggle" type="checkbox" checked />
+                <span>Require selected constraints</span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <h4>Genres</h4>
+            <div id="genreFilterList" class="genre-filter-list" aria-label="Genre filters"></div>
+          </div>
+
+          <div class="filter-actions">
+            <button class="primary-btn" id="generateRecommendations" type="button">Generate recommendations</button>
+          </div>
+          <p id="activeFilters" class="active-filters">No active filters yet.</p>
+        </form>
+      </section>
+
       <section class="content-section split-layout">
         <div>
           <div class="section-header">
