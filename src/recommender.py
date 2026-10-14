@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import re
+from typing import Any
+
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 from src.data_processing import clean_dataset, get_dataset_path, load_dataset
+from src.llm_provider import OpenAIProvider
 
 
 class BookRecommender:
-    def __init__(self, dataset_path: str | None = None):
+    def __init__(self, dataset_path: str | None = None, llm_provider: OpenAIProvider | None = None):
         df = clean_dataset(load_dataset(dataset_path or get_dataset_path()))
         self.df = df.copy().reset_index(drop=True)
         self.df["search_text"] = (
@@ -19,6 +23,7 @@ class BookRecommender:
         self.matrix = self.vectorizer.fit_transform(self.df["search_text"].fillna(""))
         self._title_lookup = {str(title).strip().lower(): idx for idx, title in enumerate(self.df["title"].fillna(""))}
         self._isbn_lookup = {str(isbn).strip(): idx for isbn, idx in zip(self.df["isbn13"].fillna(""), range(len(self.df)))}
+        self.llm_provider = llm_provider
 
     @staticmethod
     def _normalize_query(query: str) -> str:
@@ -65,6 +70,34 @@ class BookRecommender:
             if normalized in str(title).strip().lower():
                 return idx
         return None
+
+    def _score_candidate_book(self, query: str, preference_terms: set[str], book: dict[str, Any]) -> float:
+        title = (book.get("title") or "").lower()
+        authors = (book.get("authors") or "").lower()
+        categories = (book.get("categories") or "").lower()
+        description = (book.get("description") or "").lower()
+        text_blob = " ".join([title, authors, categories, description])
+
+        score = 0.0
+        query_tokens = {token for token in re.findall(r"[a-z0-9]+", query.lower()) if len(token) > 2}
+        for token in query_tokens | preference_terms:
+            if token in text_blob:
+                score += 0.18
+
+        for candidate in (book.get("categories") or "").split(","):
+            if candidate.strip().lower() in {term.lower() for term in preference_terms}:
+                score += 0.3
+
+        avg_rating = float(book.get("average_rating") or 0)
+        score += (avg_rating / 5.0) * 0.2
+
+        rating_count = float(book.get("ratings_count") or 0)
+        score += min(rating_count / 10000000.0, 1.0) * 0.1
+
+        if title in query.lower() or query.lower() in title:
+            score += 0.4
+
+        return score
 
     def search_books(self, query: str, limit: int = 10) -> list[dict]:
         normalized = self._normalize_query(query)
@@ -162,6 +195,48 @@ class BookRecommender:
             return []
         subset = subset.sort_values(by=["average_rating", "ratings_count"], ascending=[False, False], na_position="last")
         return [self._as_book_record(row) for _, row in subset.head(limit).iterrows()]
+
+    def hybrid_recommendations(self, query: str, limit: int = 6, llm_provider: OpenAIProvider | None = None) -> list[dict]:
+        normalized = self._normalize_query(query)
+        if not normalized:
+            return []
+
+        provider = llm_provider or self.llm_provider
+        preferences = {}
+        if provider and getattr(provider, "available", False):
+            preferences = provider.extract_preferences(normalized)
+
+        search_terms = set(re.findall(r"[a-z0-9]+", normalized))
+        preference_terms = set(search_terms)
+        if isinstance(preferences, dict):
+            preference_terms |= {token for field in ["genres", "topics", "authors"] for token in preferences.get(field, []) if isinstance(token, str) for token in re.findall(r"[a-z0-9]+", token.lower())}
+
+        candidate_books = self.search_books(normalized, limit=max(limit * 4, 10))
+        if not candidate_books:
+            candidate_books = self.category_recommendations(normalized, limit=max(limit * 4, 10))
+        if not candidate_books:
+            candidate_books = [self._as_book_record(row) for _, row in self.df.sort_values(["average_rating", "ratings_count"], ascending=[False, False], na_position="last").head(max(limit * 4, 10)).iterrows()]
+
+        scored = []
+        for book in candidate_books:
+            score = self._score_candidate_book(normalized, preference_terms, book)
+            if isinstance(preferences, dict):
+                score += 0.12 * len([field for field in ["genres", "topics", "authors"] if any(token.lower() in (book.get("categories") or "").lower() or token.lower() in (book.get("authors") or "").lower() for token in preferences.get(field, []))])
+            scored.append({**book, "_score": score})
+
+        ranked = sorted(scored, key=lambda item: item["_score"], reverse=True)
+        unique_books = []
+        seen = set()
+        for result in ranked:
+            title = str(result.get("title") or "").strip().lower()
+            if not title or title in seen:
+                continue
+            seen.add(title)
+            unique_books.append({key: value for key, value in result.items() if key != "_score"})
+            if len(unique_books) >= limit:
+                break
+
+        return unique_books
 
 
 if __name__ == "__main__":

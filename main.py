@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,7 +12,10 @@ from pydantic import BaseModel
 
 from src.chatbot import BookBot
 from src.data_processing import clean_dataset, get_dataset_path, get_dataset_stats, load_dataset, prepare_dataset
+from src.llm_provider import OpenAIProvider
 from src.recommender import BookRecommender
+
+load_dotenv()
 
 APP_ROOT = Path(__file__).resolve().parent
 TEMPLATES_DIR = APP_ROOT / "templates"
@@ -28,7 +32,8 @@ try:
 except Exception:  # pragma: no cover
     processed_df = clean_dataset(load_dataset(get_dataset_path()))
 
-recommender = BookRecommender(dataset_path=get_dataset_path())
+llm_provider = OpenAIProvider()
+recommender = BookRecommender(dataset_path=get_dataset_path(), llm_provider=llm_provider)
 chatbot = BookBot()
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -41,6 +46,10 @@ class ChatMessage(BaseModel):
 @app.on_event("startup")
 def startup_event() -> None:
     logger.info("BookWise started with %s books.", len(recommender.df))
+    if llm_provider.available:
+        logger.info("LLM recommendations are enabled via %s.", llm_provider.model)
+    else:
+        logger.info("LLM recommendations are disabled; falling back to catalog-based recommendation logic.")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -51,7 +60,7 @@ def index(request: Request) -> HTMLResponse:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "books": int(len(recommender.df)), "timestamp": "2026-10-13T00:00:00Z"}
+    return {"status": "ok", "books": int(len(recommender.df)), "timestamp": "2026-10-13T00:00:00Z", "llm_available": bool(llm_provider.available)}
 
 
 @app.get("/api/stats")
@@ -88,8 +97,8 @@ def api_recommendations(
     if genre:
         books = recommender.category_recommendations(genre, limit=limit)
     else:
-        books = recommender.recommend_for_query(query_text, limit=limit)
-    return {"query": query_text, "count": len(books), "books": books}
+        books = recommender.hybrid_recommendations(query_text, limit=limit, llm_provider=llm_provider)
+    return {"query": query_text, "count": len(books), "books": books, "llm_assisted": bool(llm_provider.available)}
 
 
 @app.post("/api/chat")
@@ -97,13 +106,17 @@ def api_chat(payload: ChatMessage) -> dict:
     message = payload.message.strip()
     if not message:
         raise HTTPException(status_code=400, detail="A message is required.")
+
     response = chatbot.respond(message)
-    books = []
-    if "fantasy" in message.lower() or "mystery" in message.lower() or "romance" in message.lower():
+    books: list[dict] = []
+    if any(word in message.lower() for word in ["recommend", "suggest", "want", "interested", "like", "need", "for someone"]):
+        books = recommender.hybrid_recommendations(message, limit=3, llm_provider=llm_provider)
+        response = response if not books else response
+    elif "fantasy" in message.lower() or "mystery" in message.lower() or "romance" in message.lower():
         books = recommender.category_recommendations(next((word for word in ["fantasy", "mystery", "romance", "science fiction"] if word in message.lower()), "fiction"), limit=3)
     else:
         books = recommender.search_books(message, limit=3)
-    return {"response": response, "books": books}
+    return {"response": response, "books": books, "llm_assisted": bool(llm_provider.available)}
 
 
 if __name__ == "__main__":
